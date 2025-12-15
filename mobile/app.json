@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "Menna",
+    "slug": "menna",
+    "scheme": "menna",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "platforms": ["ios", "android"],
+    "extra": {
+      "apiBase": "http://localhost:8000"
+    }
+  }
+}

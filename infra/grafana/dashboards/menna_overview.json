@@ -1,0 +1,47 @@
+{
+  "title": "Menna Service Health",
+  "schemaVersion": 36,
+  "version": 1,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "API latency p95",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP errors",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m]))"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "DB pool usage",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sqlalchemy_pool_checked_in - sqlalchemy_pool_checked_out"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Redis ops",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "rate(redis_commands_processed_total[5m])"
+        }
+      ]
+    }
+  ]
+}

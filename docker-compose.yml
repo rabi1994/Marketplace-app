@@ -1,0 +1,115 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: menna
+      POSTGRES_PASSWORD: menna
+      POSTGRES_DB: menna
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:23
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - ./backend/.env.example
+    volumes:
+      - ./backend:/app/backend
+    depends_on:
+      - postgres
+      - redis
+      - clickhouse
+    ports:
+      - "8000:8000"
+    command: ["sh", "-c", "mkdir -p /tmp/prom && alembic upgrade head && uvicorn backend.presentation.main:app --host 0.0.0.0 --port 8000"]
+
+  rq-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - ./backend/.env.example
+    volumes:
+      - ./backend:/app/backend
+    depends_on:
+      - backend
+      - redis
+    command: ["python", "-m", "backend.infrastructure.worker"]
+
+  web:
+    build:
+      context: .
+      dockerfile: ./web/Dockerfile
+    env_file:
+      - ./web/.env.example
+    volumes:
+      - ./web:/app/web
+      - /app/web/node_modules
+      - ./shared:/app/shared
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    command: ["sh", "-c", "cd /app/shared && npm install && npm run build || true && cd /app/web && npm install && npm run build && npm run start"]
+
+  mobile:
+    build:
+      context: .
+      dockerfile: ./mobile/Dockerfile
+    env_file:
+      - ./mobile/.env.example
+    volumes:
+      - ./mobile:/app/mobile
+      - /app/mobile/node_modules
+      - ./shared:/app/shared
+    command: ["npm", "run", "start"]
+    ports:
+      - "19000:19000"
+      - "19001:19001"
+      - "19002:19002"
+    depends_on:
+      - backend
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      - backend
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres_data:
+  clickhouse_data:
+  grafana_data:
